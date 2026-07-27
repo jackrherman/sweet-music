@@ -1,5 +1,7 @@
 # Sweet Music
 
+![Sweet Music 64×64 RGB LED matrix connected to a Raspberry Pi](docs/images/sweet-music-cover.webp)
+
 A wall-mounted 64×64 LED matrix that shows **Spotify album art with a live progress bar** while music is playing, and falls back to **continuous glucose readings from Nightscout** when it isn't.
 
 Built on a Raspberry Pi Zero W with an Adafruit RGB Matrix Bonnet.
