@@ -30,7 +30,7 @@ Both directions of the switch are animated.
 
 ### Wiring
 
-![Power and data wiring](docs/images/power.png)
+![Wiring diagram](docs/images/wiring.png)
 
 **One supply feeds everything.** The PSU goes into the bonnet's screw terminals, and the bonnet back-feeds the Pi through the GPIO header. **Do not also connect USB power** — two 5V supplies tied together through the header will fight each other and one will collapse, which shows up as the Pi resetting whenever the panel is energised.
 
@@ -38,9 +38,13 @@ Because the Pi is powered through the header, this bypasses its polyfuse. Check 
 
 Both panel cables are needed: the 16-pin HUB75 ribbon into the panel's **INPUT** side, and the separate 4-pin 5V/GND harness. A dark panel looks identical powered or not, so measure rather than assume.
 
-### The E address line
+### Pin mapping
 
-![E line](docs/images/eline.png)
+The bonnet makes every signal connection for you — this is the reference for what it is doing, and for the one connection it does not make.
+
+![Pin mapping](docs/images/pinout.png)
+
+### The E address line
 
 A 64×64 panel at 1/32 scan needs five address lines. The bonnet does not connect **E** by default — bridge the centre `E` pad to the pad marked `8`. If the top half of the panel appears duplicated or garbled, move the bridge to pad `16` instead; a few third-party panels are wired that way.
 
