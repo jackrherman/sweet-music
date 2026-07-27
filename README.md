@@ -54,6 +54,10 @@ The bonnet makes every signal connection for you — this is the reference for w
 
 A 64×64 panel at 1/32 scan needs five address lines. The bonnet does not connect **E** by default — bridge the centre `E` pad to the pad marked `8`. If the top half of the panel appears duplicated or garbled, move the bridge to pad `16` instead; a few third-party panels are wired that way.
 
+### The PWM mod
+
+Do this one too. Solder **GPIO4 to GPIO18** and the blanking signal is driven by the Pi's hardware PWM peripheral instead of a preemptible software thread. It is the largest single improvement to flicker available on this hardware — see [Whole-panel flicker](#whole-panel-flicker) for the measurements and the two config changes it needs.
+
 ---
 
 ## Software setup
@@ -77,6 +81,9 @@ dtparam=audio=off
 # GPIO4 is OE (active low), held high so panel output stays disabled during boot.
 gpio=4=op,dh
 gpio=5,6,12,13,16,17,20,21,22,23,24,26,27=op,dl
+
+# OE moves to GPIO18 under the adafruit-hat-pwm mapping. Park it high too.
+gpio=18=op,dh
 ```
 
 ### 3. Build the matrix library
@@ -243,24 +250,47 @@ A slower GPIO clock is often suggested for this, but it is the wrong trade here 
 
 ### Whole-panel flicker
 
-If the panel shimmers evenly rather than showing corrupt rows, that is refresh rate, and the single biggest lever is **`pwm_lsb_nanoseconds`** — not `gpio_slowdown`, and not the refresh-rate cap.
+If the panel shimmers evenly rather than showing corrupt rows, that is refresh rate. Two things move it, in this order.
 
-Measured on a Pi Zero W driving 64×64, median refresh over a static colour screen with the service stopped:
+#### Do the PWM mod
 
-| `gpio_slowdown` | `pwm_bits` | `pwm_lsb_nanoseconds` | Refresh |
+This is the single biggest win, and it is a solder blob. Bridge **GPIO4 to GPIO18** on the bonnet, then use the `adafruit-hat-pwm` mapping instead of `adafruit-hat`. The blanking signal (OE) is then driven by the Pi's hardware PWM peripheral rather than timed by a userspace thread that the kernel can preempt mid-frame. Faster *and* immune to scheduling jitter.
+
+The mod does nothing unless you also change the mapping — the jumper alone is inert.
+
+It also needs the PWM peripheral free, and the Pi's sound driver claims the same hardware. `dtparam=audio=off` is **not sufficient**, because the vc4 HDMI driver pulls `snd_bcm2835` back in:
+
+```bash
+echo 'blacklist snd_bcm2835' | sudo tee /etc/modprobe.d/blacklist-rgb-matrix.conf
+sudo reboot
+```
+
+If you skip this the library refuses to start and tells you to pass `--led-no-hardware-pulse`, which throws away the entire benefit. Fix the sound module instead.
+
+Add GPIO18 to the parked pins in `config.txt`, since OE lives there now:
+
+```ini
+gpio=18=op,dh
+```
+
+#### Then tune `pwm_lsb_nanoseconds`
+
+Not `gpio_slowdown`, and not the refresh-rate cap. The library default is 130; roughly halving it is worth more than every other knob. It shortens the least-significant bit-plane, so the binary-code-modulation cycle completes sooner.
+
+Measured on a Pi Zero W driving 64×64, median refresh over a static colour screen, **service stopped**:
+
+| Mapping | `pwm_bits` | `lsb ns` | Refresh |
 |---|---|---|---|
-| 1 | 8 | 60 | **146Hz** (defaults here) |
-| 2 | 8 | 60 | 129Hz |
-| 1 | 6 | 60 | 162Hz |
-| 1 | 7 | 100 | 104Hz |
-| 2 | 8 | 100 | 91.6Hz |
-| 2 | 9 | 130 | 64Hz |
+| `adafruit-hat-pwm` | 11 | 50 | **153.7Hz** (defaults here) |
+| `adafruit-hat-pwm` | 10 | 50 | 161.2Hz |
+| `adafruit-hat-pwm` | 8 | 60 | 166.6Hz |
+| `adafruit-hat` | 8 | 60 | 146.3Hz |
+| `adafruit-hat` | 8 | 100 | 91.6Hz |
+| `adafruit-hat` | 9 | 130 | 64Hz |
 
-The library's default `pwm_lsb_nanoseconds` is 130. Dropping it to 60 is worth more than every other tuning knob combined. It shortens the least-significant bit-plane, so the whole binary-code-modulation cycle completes sooner.
+All of the above use `gpio_slowdown=1`, which is what `rpi-rgb-led-matrix` recommends for a Pi 1 / Zero — the higher values exist for the faster Pi 3 and 4.
 
-`gpio_slowdown=1` is what `rpi-rgb-led-matrix` recommends for a Pi 1 / Zero anyway — the higher values exist for the faster Pi 3 and 4.
-
-`pwm_bits=6` measures fastest at 162Hz, but 64 levels per channel bands visibly on photographic album art. 8 bits at 146Hz is the better trade.
+Note the defaults keep **`pwm_bits=11`**, the full 2048 levels per channel. Under hardware PWM the depth is nearly free, so there is no reason to trade colour accuracy for refresh. At 8 bits the panel has so few steps near the bottom of the range that dim colours quantise and drift off-hue — a 35 %-brightness red renders as muddy pink.
 
 **Measure with the service stopped.** Two processes driving the same GPIO reads as 40Hz instead of 146Hz, which looks like a catastrophic regression that isn't real.
 
