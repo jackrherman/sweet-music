@@ -239,21 +239,32 @@ Diagnostics worth running before assuming power is at fault:
 | `cat /sys/class/leds/*/trigger` | Confirms the ACT LED is on `mmc0` |
 | `/proc/swaps` | Raspberry Pi OS now uses zram; swap is in RAM and never touches the card |
 
-A slower GPIO clock also helps, at a modest cost in refresh rate. Measured on a Pi Zero W with a 64×64 panel:
-
-| `gpio_slowdown` | Refresh (median) |
-|---|---|
-| 2 | 91.6Hz |
-| 3 | 84.7Hz |
-| 4 | 81.5Hz (default here) |
+A slower GPIO clock is often suggested for this, but it is the wrong trade here — it lowers the refresh rate, and low refresh is the *other* flicker problem. Measured: `gpio_slowdown` 2 / 3 / 4 gives 91.6 / 84.7 / 81.5Hz. Fix the SD I/O instead and leave the clock fast.
 
 ### Whole-panel flicker
 
-The panel refreshes at about **91Hz** on a Pi Zero W (81Hz at the `gpio_slowdown` used here). That is below the flicker fusion threshold for a bright, large area, so full-panel album art visibly shimmers. The mostly-black glucose screen flickers identically — you just can't see it, because unlit pixels don't switch.
+If the panel shimmers evenly rather than showing corrupt rows, that is refresh rate, and the single biggest lever is **`pwm_lsb_nanoseconds`** — not `gpio_slowdown`, and not the refresh-rate cap.
 
-Tuning does not fix this. `pwm_bits=7, gpio_slowdown=1` reaches 103Hz, and removing the refresh-rate cap changes nothing.
+Measured on a Pi Zero W driving 64×64, median refresh over a static colour screen with the service stopped:
 
-**The fix is a Pi Zero 2 W.** It is a drop-in replacement — same form factor, same header, same bonnet, and the same 32-bit image boots on it. Being quad-core, you can hand the refresh thread a dedicated core by appending `isolcpus=3` to `/boot/firmware/cmdline.txt`, which is what `rpi-rgb-led-matrix` recommends. That typically reaches 200Hz+.
+| `gpio_slowdown` | `pwm_bits` | `pwm_lsb_nanoseconds` | Refresh |
+|---|---|---|---|
+| 1 | 8 | 60 | **146Hz** (defaults here) |
+| 2 | 8 | 60 | 129Hz |
+| 1 | 6 | 60 | 162Hz |
+| 1 | 7 | 100 | 104Hz |
+| 2 | 8 | 100 | 91.6Hz |
+| 2 | 9 | 130 | 64Hz |
+
+The library's default `pwm_lsb_nanoseconds` is 130. Dropping it to 60 is worth more than every other tuning knob combined. It shortens the least-significant bit-plane, so the whole binary-code-modulation cycle completes sooner.
+
+`gpio_slowdown=1` is what `rpi-rgb-led-matrix` recommends for a Pi 1 / Zero anyway — the higher values exist for the faster Pi 3 and 4.
+
+`pwm_bits=6` measures fastest at 162Hz, but 64 levels per channel bands visibly on photographic album art. 8 bits at 146Hz is the better trade.
+
+**Measure with the service stopped.** Two processes driving the same GPIO reads as 40Hz instead of 146Hz, which looks like a catastrophic regression that isn't real.
+
+**If that is still not enough, the fix is a Pi Zero 2 W.** It is a drop-in replacement — same form factor, same header, same bonnet, and the same 32-bit image boots on it. Being quad-core, you can hand the refresh thread a dedicated core by appending `isolcpus=3` to `/boot/firmware/cmdline.txt`, which is what `rpi-rgb-led-matrix` recommends. That typically reaches 200Hz+.
 
 Note that a different panel does **not** help. HUB75 panels are passive; the "2800Hz refresh" on a seller's spec sheet is what the panel's driver chips can do when fed by a dedicated controller card. Driven by a bit-banging Pi, the refresh rate is set entirely by the Pi.
 

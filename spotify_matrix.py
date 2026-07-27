@@ -1170,10 +1170,10 @@ def build_parser() -> argparse.ArgumentParser:
     # Defaults below were tuned by A/B testing flicker on the Pi Zero W + Adafruit
     # bonnet + 64x64 P4 panel. Shorter pwm_lsb_nanoseconds visibly reduces the
     # intermittent white flash; below 100 the frame rate collapses for no gain.
-    parser.add_argument("--gpio-slowdown", type=int, default=4)
+    parser.add_argument("--gpio-slowdown", type=int, default=1)
     parser.add_argument("--hardware-mapping", default="adafruit-hat")
     parser.add_argument("--pwm-bits", type=int, default=8)
-    parser.add_argument("--pwm-lsb-nanoseconds", type=int, default=100)
+    parser.add_argument("--pwm-lsb-nanoseconds", type=int, default=60)
     parser.add_argument("--limit-refresh-rate-hz", type=int, default=0)
     parser.add_argument(
         "--no-hardware-pulse",
