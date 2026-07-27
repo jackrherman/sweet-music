@@ -4,8 +4,6 @@ A wall-mounted 64×64 LED matrix that shows **Spotify album art with a live prog
 
 Built on a Raspberry Pi Zero W with an Adafruit RGB Matrix Bonnet.
 
-![Data flow](docs/images/dataflow.png)
-
 ---
 
 ## What it does
@@ -32,6 +30,8 @@ Both directions of the switch are animated.
 
 ![Wiring diagram](docs/images/wiring.png)
 
+*Every connection you actually make: PSU into the bonnet's screw terminal, the 4-pin harness out to the panel, the 16-way ribbon into INPUT, and the bonnet seated on the Pi's header.*
+
 **One supply feeds everything.** The PSU goes into the bonnet's screw terminals, and the bonnet back-feeds the Pi through the GPIO header. **Do not also connect USB power** — two 5V supplies tied together through the header will fight each other and one will collapse, which shows up as the Pi resetting whenever the panel is energised.
 
 Because the Pi is powered through the header, this bypasses its polyfuse. Check polarity at the terminals with a meter before the first power-up.
@@ -43,6 +43,8 @@ Both panel cables are needed: the 16-pin HUB75 ribbon into the panel's **INPUT**
 The bonnet makes every signal connection for you — this is the reference for what it is doing, and for the one connection it does not make.
 
 ![Pin mapping](docs/images/pinout.png)
+
+*Filled pins are driven by the matrix. Taken from the `adafruit-hat` profile in `lib/hardware-mapping.c`, which is also why the `config.txt` line above parks exactly those 14 pins.*
 
 ### The E address line
 
@@ -177,7 +179,13 @@ sudo systemctl enable --now sweet-music
 
 ---
 
-## How it stays smooth on one core
+## How it works
+
+![Software flow](docs/images/dataflow.png)
+
+*Two poller threads keep shared state; the render loop reads it and writes to the panel only when the frame key changes.*
+
+### Staying smooth on one core
 
 A Pi Zero W has a single ARMv6 core, and the matrix library already spends most of it generating bit-planes. Everything below exists because the naive version was too slow.
 
