@@ -1,0 +1,16 @@
+# Adjust WorkingDirectory and ExecStart to wherever you cloned the project.
+[Unit]
+Description=Sweet Music - Spotify album art and glucose on an RGB matrix
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/pi/sweet-music
+ExecStart=/home/pi/sweet-music/.venv/bin/python -u /home/pi/sweet-music/spotify_matrix.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" width="900" height="620" font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+  <rect width="900" height="620" fill="#12141a"/>
+  <text x="30" y="46" fill="#ffffff" font-size="26" font-weight="bold">How Sweet Music decides what to show</text>
+  <text x="30" y="74" fill="#9aa3b2" font-size="15">Two poller threads keep shared state; the render loop reads it and only pushes when the picture changes.</text>
+
+  <!-- sources -->
+  <rect x="40" y="120" width="200" height="86" rx="10" fill="#1d2230" stroke="#3ddc84" stroke-width="2.5"/>
+  <text x="140" y="152" fill="#ffffff" font-size="16" font-weight="bold" text-anchor="middle">Spotify Web API</text>
+  <text x="140" y="176" fill="#9aa3b2" font-size="12.5" text-anchor="middle">currently-playing</text>
+  <text x="140" y="195" fill="#9aa3b2" font-size="12.5" text-anchor="middle">polled every 4s</text>
+
+  <rect x="40" y="250" width="200" height="86" rx="10" fill="#1d2230" stroke="#ff5c33" stroke-width="2.5"/>
+  <text x="140" y="282" fill="#ffffff" font-size="16" font-weight="bold" text-anchor="middle">Nightscout</text>
+  <text x="140" y="306" fill="#9aa3b2" font-size="12.5" text-anchor="middle">/api/v1/entries.json</text>
+  <text x="140" y="325" fill="#9aa3b2" font-size="12.5" text-anchor="middle">polled every 60s</text>
+
+  <!-- state -->
+  <rect x="320" y="150" width="200" height="76" rx="10" fill="#1a2030" stroke="#4da3ff" stroke-width="2"/>
+  <text x="420" y="180" fill="#ffffff" font-size="14.5" font-weight="bold" text-anchor="middle">SharedPlaybackState</text>
+  <text x="420" y="202" fill="#9aa3b2" font-size="12">art · is_playing · progress</text>
+
+  <rect x="320" y="262" width="200" height="76" rx="10" fill="#1a2030" stroke="#4da3ff" stroke-width="2"/>
+  <text x="420" y="292" fill="#ffffff" font-size="14.5" font-weight="bold" text-anchor="middle">SharedGlucoseState</text>
+  <text x="420" y="314" fill="#9aa3b2" font-size="12">last 24 readings</text>
+
+  <path d="M240 163 L320 178" stroke="#3ddc84" stroke-width="3" marker-end="url(#a1)"/>
+  <path d="M240 293 L320 293" stroke="#ff5c33" stroke-width="3" marker-end="url(#a2)"/>
+
+  <!-- decision -->
+  <rect x="600" y="150" width="260" height="190" rx="10" fill="#1d2230" stroke="#a06bff" stroke-width="2.5"/>
+  <text x="730" y="182" fill="#ffffff" font-size="16" font-weight="bold" text-anchor="middle">Render loop</text>
+  <text x="620" y="212" fill="#3ddc84" font-size="13.5" font-weight="bold">playing?</text>
+  <text x="638" y="234" fill="#e6e9ef" font-size="13">yes → album art + bar</text>
+  <text x="638" y="256" fill="#e6e9ef" font-size="13">no  → glucose screen</text>
+  <text x="620" y="286" fill="#ffd166" font-size="12.5">paused counts as not playing</text>
+  <text x="620" y="312" fill="#9aa3b2" font-size="12.5">scene change → swipe transition</text>
+
+  <path d="M520 190 L600 200" stroke="#4da3ff" stroke-width="3" marker-end="url(#a3)"/>
+  <path d="M520 300 L600 268" stroke="#4da3ff" stroke-width="3" marker-end="url(#a3)"/>
+
+  <!-- panel -->
+  <rect x="600" y="400" width="260" height="90" rx="10" fill="#1d2230" stroke="#3ddc84" stroke-width="2.5"/>
+  <text x="730" y="432" fill="#ffffff" font-size="16" font-weight="bold" text-anchor="middle">64×64 LED panel</text>
+  <text x="730" y="458" fill="#9aa3b2" font-size="12.5" text-anchor="middle">SetImage only when the frame</text>
+  <text x="730" y="476" fill="#9aa3b2" font-size="12.5" text-anchor="middle">key actually changes</text>
+  <path d="M730 340 L730 400" stroke="#a06bff" stroke-width="3" marker-end="url(#a4)"/>
+
+  <!-- perf notes -->
+  <rect x="40" y="400" width="510" height="170" rx="10" fill="#1a1420" stroke="#ffd166" stroke-width="2"/>
+  <text x="62" y="430" fill="#ffd166" font-size="15" font-weight="bold">Why it stays smooth on one ARMv6 core</text>
+  <text x="62" y="458" fill="#e6e9ef" font-size="13">• Album art is fetched at 64px, not 640px — a LANCZOS downscale costs ~3s</text>
+  <text x="62" y="480" fill="#e6e9ef" font-size="13">• The composed frame is cached per progress-bar pixel (~1 redraw / 3s)</text>
+  <text x="62" y="502" fill="#e6e9ef" font-size="13">• Identical frames are never re-pushed (SetImage costs ~25ms)</text>
+  <text x="62" y="524" fill="#e6e9ef" font-size="13">• Idles at 4fps; only animations run at full rate</text>
+  <text x="62" y="546" fill="#e6e9ef" font-size="13">• Keep-alive HTTP session — a TLS handshake per poll stalls the render loop</text>
+
+  <defs>
+    <marker id="a1" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#3ddc84"/></marker>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#ff5c33"/></marker>
+    <marker id="a3" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#4da3ff"/></marker>
+    <marker id="a4" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#a06bff"/></marker>
+  </defs>
+</svg>

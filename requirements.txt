@@ -1,0 +1,6 @@
+# Pillow and requests are expected from system packages (python3-pillow,
+# python3-requests) via a venv created with --system-site-packages. Building
+# Pillow from source on a Pi Zero tends to exhaust its memory.
+Pillow>=10.0
+requests>=2.31
+python-dotenv>=1.0

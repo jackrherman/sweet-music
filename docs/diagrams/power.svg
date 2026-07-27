@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" width="900" height="560" font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+  <rect width="900" height="560" fill="#12141a"/>
+  <text x="30" y="46" fill="#ffffff" font-size="26" font-weight="bold">Sweet Music — Power &amp; Data Wiring</text>
+  <text x="30" y="74" fill="#9aa3b2" font-size="15">One 5V supply feeds both the panel and the Pi. Never connect USB power at the same time.</text>
+
+  <!-- PSU -->
+  <rect x="40" y="130" width="180" height="110" rx="10" fill="#1d2230" stroke="#ff5c33" stroke-width="2.5"/>
+  <text x="130" y="168" fill="#ffffff" font-size="17" font-weight="bold" text-anchor="middle">5V 5A PSU</text>
+  <text x="130" y="192" fill="#9aa3b2" font-size="13" text-anchor="middle">mains → 5V DC</text>
+  <text x="130" y="214" fill="#ff5c33" font-size="13" text-anchor="middle" font-weight="bold">centre positive</text>
+
+  <!-- Bonnet -->
+  <rect x="330" y="110" width="230" height="150" rx="10" fill="#1d2230" stroke="#4da3ff" stroke-width="2.5"/>
+  <text x="445" y="145" fill="#ffffff" font-size="17" font-weight="bold" text-anchor="middle">Adafruit RGB Matrix</text>
+  <text x="445" y="167" fill="#ffffff" font-size="17" font-weight="bold" text-anchor="middle">Bonnet</text>
+  <text x="445" y="196" fill="#9aa3b2" font-size="13" text-anchor="middle">screw terminals: 5V / GND</text>
+  <text x="445" y="216" fill="#9aa3b2" font-size="13" text-anchor="middle">HUB75 header (16 pin)</text>
+  <text x="445" y="240" fill="#ffd166" font-size="13" text-anchor="middle">solder E → pad 8</text>
+
+  <!-- Pi -->
+  <rect x="330" y="330" width="230" height="120" rx="10" fill="#1d2230" stroke="#a06bff" stroke-width="2.5"/>
+  <text x="445" y="366" fill="#ffffff" font-size="17" font-weight="bold" text-anchor="middle">Raspberry Pi Zero W</text>
+  <text x="445" y="390" fill="#9aa3b2" font-size="13" text-anchor="middle">(or Zero 2 W — recommended)</text>
+  <text x="445" y="414" fill="#ff5c33" font-size="13" text-anchor="middle" font-weight="bold">USB PWR: leave unplugged</text>
+  <text x="445" y="436" fill="#9aa3b2" font-size="13" text-anchor="middle">powered via GPIO from bonnet</text>
+
+  <!-- Panel -->
+  <rect x="670" y="130" width="190" height="190" rx="10" fill="#1d2230" stroke="#3ddc84" stroke-width="2.5"/>
+  <text x="765" y="166" fill="#ffffff" font-size="17" font-weight="bold" text-anchor="middle">64×64 P4 Panel</text>
+  <text x="765" y="190" fill="#9aa3b2" font-size="13" text-anchor="middle">HUB75, 1/32 scan</text>
+  <rect x="700" y="210" width="130" height="40" rx="5" fill="#12141a" stroke="#5a6478"/>
+  <text x="765" y="235" fill="#9aa3b2" font-size="12" text-anchor="middle">INPUT side</text>
+  <text x="765" y="278" fill="#ffd166" font-size="12" text-anchor="middle">check arrow direction</text>
+  <text x="765" y="298" fill="#ffd166" font-size="12" text-anchor="middle">on the PCB silkscreen</text>
+
+  <!-- PSU -> bonnet (power) -->
+  <path d="M220 168 L322 168" stroke="#ff5c33" stroke-width="5" fill="none" marker-end="url(#arrowR)"/>
+  <text x="275" y="158" fill="#ff5c33" font-size="12" text-anchor="middle">5V</text>
+  <path d="M220 200 L322 200" stroke="#8892a4" stroke-width="5" fill="none" marker-end="url(#arrowG)"/>
+  <text x="275" y="222" fill="#8892a4" font-size="12" text-anchor="middle">GND</text>
+
+  <!-- bonnet -> panel power harness -->
+  <path d="M560 160 L662 160" stroke="#ff5c33" stroke-width="5" fill="none" marker-end="url(#arrowR)"/>
+  <text x="615" y="150" fill="#ff5c33" font-size="12" text-anchor="middle">5V</text>
+  <path d="M560 190 L662 190" stroke="#8892a4" stroke-width="5" fill="none" marker-end="url(#arrowG)"/>
+  <text x="615" y="212" fill="#8892a4" font-size="12" text-anchor="middle">GND</text>
+  <text x="615" y="122" fill="#ffffff" font-size="13" text-anchor="middle" font-weight="bold">4-pin power harness</text>
+
+  <!-- bonnet -> panel ribbon -->
+  <path d="M560 230 C 620 230, 620 230, 692 230" stroke="#4da3ff" stroke-width="6" fill="none" marker-end="url(#arrowB)"/>
+  <text x="612" y="256" fill="#4da3ff" font-size="13" text-anchor="middle" font-weight="bold">16-pin ribbon</text>
+
+  <!-- bonnet -> pi -->
+  <path d="M445 260 L445 322" stroke="#a06bff" stroke-width="6" fill="none" marker-end="url(#arrowP)"/>
+  <text x="330" y="300" fill="#a06bff" font-size="13" font-weight="bold" text-anchor="end">40-pin</text><text x="330" y="318" fill="#a06bff" font-size="13" font-weight="bold" text-anchor="end">GPIO header</text>
+
+  <!-- power order box -->
+  <rect x="40" y="330" width="250" height="180" rx="10" fill="#1a1420" stroke="#ffd166" stroke-width="2"/>
+  <text x="60" y="360" fill="#ffd166" font-size="15" font-weight="bold">Power-up order</text>
+  <text x="60" y="388" fill="#e6e9ef" font-size="13">1. PSU on first</text>
+  <text x="60" y="410" fill="#e6e9ef" font-size="13">2. Pi comes up with it</text>
+  <text x="60" y="440" fill="#ff5c33" font-size="12.5" font-weight="bold">Driving HUB75 signals into</text>
+  <text x="60" y="458" fill="#ff5c33" font-size="12.5" font-weight="bold">an unpowered panel cooks</text>
+  <text x="60" y="476" fill="#ff5c33" font-size="12.5" font-weight="bold">the 74AHCT245 buffers.</text>
+  <text x="60" y="498" fill="#9aa3b2" font-size="12">One supply only — no USB.</text>
+
+  <text x="330" y="500" fill="#9aa3b2" font-size="12.5">Panel draws ~4A at full white; a 5A supply leaves headroom for the Pi.</text>
+  <text x="330" y="522" fill="#9aa3b2" font-size="12.5">Fork terminals must sit flat and clear the adjacent post.</text>
+
+  <defs>
+    <marker id="arrowR" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="10" refY="5.5" orient="auto"><path d="M0,0 L11,5.5 L0,11 z" fill="#ff5c33"/></marker>
+    <marker id="arrowG" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="10" refY="5.5" orient="auto"><path d="M0,0 L11,5.5 L0,11 z" fill="#8892a4"/></marker>
+    <marker id="arrowB" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="10" refY="5.5" orient="auto"><path d="M0,0 L11,5.5 L0,11 z" fill="#4da3ff"/></marker>
+    <marker id="arrowP" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="10" refY="5.5" orient="auto"><path d="M0,0 L11,5.5 L0,11 z" fill="#a06bff"/></marker>
+  </defs>
+</svg>
