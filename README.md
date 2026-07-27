@@ -4,6 +4,8 @@ A wall-mounted 64×64 LED matrix that shows **Spotify album art with a live prog
 
 Built on a Raspberry Pi Zero W with an Adafruit RGB Matrix Bonnet.
 
+![Software flow](docs/images/dataflow.png)
+
 ---
 
 ## What it does
@@ -180,10 +182,6 @@ sudo systemctl enable --now sweet-music
 ---
 
 ## How it works
-
-![Software flow](docs/images/dataflow.png)
-
-*Two poller threads keep shared state; the render loop reads it and writes to the panel only when the frame key changes.*
 
 ### Staying smooth on one core
 
