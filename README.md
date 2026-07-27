@@ -168,6 +168,17 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now sweet-music
 ```
 
+Then keep the journal in RAM. A service logging to disk makes the SD card busy, and SD I/O corrupts rows on the panel — see [Corrupt rows](#corrupt-rows):
+
+```bash
+sudo mkdir -p /etc/systemd/journald.conf.d
+printf 'Storage=volatile\nRuntimeMaxUse=32M\n' | sudo tee /etc/systemd/journald.conf.d/99-volatile.conf
+sudo rm -rf /var/log/journal
+sudo systemctl restart systemd-journald
+```
+
+Logs then survive only until reboot, which is the right trade for a wall display. Use `journalctl -u sweet-music` as normal.
+
 ---
 
 ## Useful flags
@@ -201,17 +212,50 @@ Benchmark on the Pi with the matrix running and the service stopped — measurin
 
 ## Flicker
 
-The panel refreshes at about **91Hz** on a Pi Zero W. That is below the flicker fusion threshold for a bright, large area, so full-panel album art visibly flickers. The mostly-black glucose screen flickers identically — you just can't see it, because unlit pixels don't switch.
+There are two separate problems here, and they look different. Diagnose which one you have before changing anything.
 
-Measured, none of these help meaningfully:
+### Corrupt rows
 
-| Change | Refresh |
+Whole horizontal lines flash the wrong colour, at random, mostly on bright content. This is **not** brightness-related and **not** a power problem — it is the refresh thread being preempted mid-frame, so a row latches stale data.
+
+The tell is the Pi's green ACT LED: its default trigger is `mmc0`, so a blink is literally an SD card access. If the LED twitches when the panel glitches, SD I/O is stalling the refresh thread.
+
+The culprit is usually dirty-page writeback. ext4 flushes every 5 seconds by default, so anything logging steadily produces a glitch heartbeat. Keeping the journal in RAM removes the source:
+
+```ini
+# /etc/systemd/journald.conf.d/99-volatile.conf
+Storage=volatile
+RuntimeMaxUse=32M
+```
+
+Measured over a 45-second static hold, sampling `/sys/block/mmcblk0/stat`: **9 SD bursts before, 1 after.**
+
+Diagnostics worth running before assuming power is at fault:
+
+| Check | Meaning |
 |---|---|
-| `pwm_bits=8`, `gpio_slowdown=2` (default here) | 91Hz |
-| `pwm_bits=7`, `gpio_slowdown=1` | 103Hz |
-| Removing the refresh-rate cap | no change |
+| `vcgencmd get_throttled` | `0x0` means no undervoltage ever, including sticky bits — rules out supply sag |
+| Same content at brightness 100 vs 40 | No difference rules out current draw |
+| `cat /sys/class/leds/*/trigger` | Confirms the ACT LED is on `mmc0` |
+| `/proc/swaps` | Raspberry Pi OS now uses zram; swap is in RAM and never touches the card |
+
+A slower GPIO clock also helps, at a modest cost in refresh rate. Measured on a Pi Zero W with a 64×64 panel:
+
+| `gpio_slowdown` | Refresh (median) |
+|---|---|
+| 2 | 91.6Hz |
+| 3 | 84.7Hz |
+| 4 | 81.5Hz (default here) |
+
+### Whole-panel flicker
+
+The panel refreshes at about **91Hz** on a Pi Zero W (81Hz at the `gpio_slowdown` used here). That is below the flicker fusion threshold for a bright, large area, so full-panel album art visibly shimmers. The mostly-black glucose screen flickers identically — you just can't see it, because unlit pixels don't switch.
+
+Tuning does not fix this. `pwm_bits=7, gpio_slowdown=1` reaches 103Hz, and removing the refresh-rate cap changes nothing.
 
 **The fix is a Pi Zero 2 W.** It is a drop-in replacement — same form factor, same header, same bonnet, and the same 32-bit image boots on it. Being quad-core, you can hand the refresh thread a dedicated core by appending `isolcpus=3` to `/boot/firmware/cmdline.txt`, which is what `rpi-rgb-led-matrix` recommends. That typically reaches 200Hz+.
+
+Note that a different panel does **not** help. HUB75 panels are passive; the "2800Hz refresh" on a seller's spec sheet is what the panel's driver chips can do when fed by a dedicated controller card. Driven by a bit-banging Pi, the refresh rate is set entirely by the Pi.
 
 ## Bar colour
 
