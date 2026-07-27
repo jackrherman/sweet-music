@@ -1323,8 +1323,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gpio-slowdown", type=int, default=1)
     parser.add_argument("--hardware-mapping", default="adafruit-hat-pwm")
     parser.add_argument("--pwm-bits", type=int, default=8)
-    parser.add_argument("--pwm-lsb-nanoseconds", type=int, default=50)
-    parser.add_argument("--limit-refresh-rate-hz", type=int, default=120)
+    parser.add_argument("--pwm-lsb-nanoseconds", type=int, default=100)
+    parser.add_argument("--limit-refresh-rate-hz", type=int, default=0)
     parser.add_argument(
         "--no-hardware-pulse",
         action="store_true",

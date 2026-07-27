@@ -273,26 +273,36 @@ Add GPIO18 to the parked pins in `config.txt`, since OE lives there now:
 gpio=18=op,dh
 ```
 
-#### Then tune `pwm_lsb_nanoseconds`
+#### Then tune `pwm_lsb_nanoseconds` — but never on refresh rate alone
 
-Not `gpio_slowdown`, and not the refresh-rate cap. The library default is 130; roughly halving it is worth more than every other knob. It shortens the least-significant bit-plane, so the binary-code-modulation cycle completes sooner.
+This is the knob that matters, and it is a trap. Shortening it raises refresh, but **below about 90ns the library busy-waits between bit-planes instead of sleeping**, and the refresh thread then consumes the entire core. On a single-core Pi that means `sshd` can no longer complete a key exchange and the poller threads never run — the panel sits on the "no data" screen while looking beautifully flicker-free, and the only way back in is to pull the SD card.
 
-Measured on a Pi Zero W driving 64×64, median refresh over a static colour screen, **service stopped**:
+So measure refresh **and** the CPU left for everything else. Measured on a Pi Zero W, 64×64, `adafruit-hat-pwm`, `pwm_bits=8`, `gpio_slowdown=1`, service stopped, with a fixed arithmetic workload scored against an idle baseline:
 
-| Mapping | `pwm_bits` | `lsb ns` | Refresh |
-|---|---|---|---|
-| `adafruit-hat-pwm` | 11 | 50 | **153.7Hz** (defaults here) |
-| `adafruit-hat-pwm` | 10 | 50 | 161.2Hz |
-| `adafruit-hat-pwm` | 8 | 60 | 166.6Hz |
-| `adafruit-hat` | 8 | 60 | 146.3Hz |
-| `adafruit-hat` | 8 | 100 | 91.6Hz |
-| `adafruit-hat` | 9 | 130 | 64Hz |
+| `pwm_lsb_nanoseconds` | Refresh | CPU left over |
+|---|---|---|
+| 50 | ~166Hz | **unusable** — locked out |
+| 90 | 115.4Hz | 18 % |
+| 100 | 109.3Hz | 20 % — **default here** |
+| 110 | 104.2Hz | 24 % |
+| 130 (library default) | 93.9Hz | 29 % |
 
-All of the above use `gpio_slowdown=1`, which is what `rpi-rgb-led-matrix` recommends for a Pi 1 / Zero — the higher values exist for the faster Pi 3 and 4.
+`gpio_slowdown=1` is what `rpi-rgb-led-matrix` recommends for a Pi 1 / Zero; the higher values exist for the faster Pi 3 and 4.
 
-Note the defaults keep **`pwm_bits=11`**, the full 2048 levels per channel. Under hardware PWM the depth is nearly free, so there is no reason to trade colour accuracy for refresh. At 8 bits the panel has so few steps near the bottom of the range that dim colours quantise and drift off-hue — a 35 %-brightness red renders as muddy pink.
+**`limit_refresh_rate_hz` does not solve this.** The cap only skips whole frames; the busy-wait happens *inside* each frame. Capping a panel that reaches 109Hz at 130Hz changes nothing at all, measured. Leave it at 0 unless you specifically want a stable rate below what the hardware manages.
+
+`pwm_bits=8` rather than the full 11: under hardware PWM the depth looks nearly free on refresh, but the extra bit-planes are more GPIO work per frame and it was measurably worse for CPU headroom. The cost is 256 levels per channel, so very dim colours quantise and can drift off-hue.
 
 **Measure with the service stopped.** Two processes driving the same GPIO reads as 40Hz instead of 146Hz, which looks like a catastrophic regression that isn't real.
+
+### Recovering a Pi you have locked out
+
+If the panel is up but the machine is unreachable, this is almost certainly the busy-wait above. Two escape hatches exist so it never needs a rebuild:
+
+- **`sweet-music.conf` on the FAT boot partition.** Mounts on any laptop, no login, no ext4 tooling. Raise `pwm_lsb_nanoseconds` and reboot. Recognised keys: `brightness`, `gpio_slowdown`, `pwm_bits`, `pwm_lsb_nanoseconds`, `limit_refresh_rate_hz`, `hardware_mapping`, `fps`, `idle_fps`.
+- **`.startup-delay`** next to `spotify_matrix.py`, containing a number of seconds. The panel stays blank that long before the hardware is touched, which guarantees a window to get a shell.
+
+Note that **ping is not a liveness test here**. ICMP is answered in kernel softirq context and stays fast while userspace is completely starved. `ssh` reporting *"Connection timed out during banner exchange"* against an open port 22 is the real signature.
 
 **If that is still not enough, the fix is a Pi Zero 2 W.** It is a drop-in replacement — same form factor, same header, same bonnet, and the same 32-bit image boots on it. Being quad-core, you can hand the refresh thread a dedicated core by appending `isolcpus=3` to `/boot/firmware/cmdline.txt`, which is what `rpi-rgb-led-matrix` recommends. That typically reaches 200Hz+.
 
