@@ -87,18 +87,52 @@ def parse_entries(payload: list[dict[str, Any]]) -> list[Reading]:
     return readings
 
 
-def fetch_entries(base_url: str, count: int = 24, timeout: float = 15.0) -> list[Reading]:
-    import requests
+_SESSION = None
 
+
+def _session():
+    """One keep-alive session for the life of the process.
+
+    A fresh TLS handshake per poll is expensive enough on an ARMv6 core to
+    stall the panel, and it is pure waste when polling the same host every
+    minute.
+    """
+    global _SESSION
+    if _SESSION is None:
+        import requests
+
+        _SESSION = requests.Session()
+        _SESSION.headers.update({"Accept": "application/json"})
+    return _SESSION
+
+
+# Free Nightscout hosting (Render and similar) idles the instance out and
+# cold-starts it on the next request, which regularly takes 30-60s. A short
+# read timeout means the very request that would wake the site is the one
+# that gets abandoned, so the screen never recovers on its own.
+CONNECT_TIMEOUT = 10.0
+READ_TIMEOUT = 75.0
+ATTEMPTS = 2
+
+
+def fetch_entries(base_url: str, count: int = 24, timeout: float | None = None) -> list[Reading]:
     url = f"{base_url.rstrip('/')}/api/v1/entries.json"
-    response = requests.get(
-        url,
-        params={"count": count},
-        headers={"Accept": "application/json"},
-        timeout=timeout,
-    )
-    response.raise_for_status()
-    return parse_entries(response.json())
+    deadline = timeout if timeout is not None else (CONNECT_TIMEOUT, READ_TIMEOUT)
+
+    last_error: Exception | None = None
+    for attempt in range(ATTEMPTS):
+        try:
+            response = _session().get(url, params={"count": count}, timeout=deadline)
+            response.raise_for_status()
+            return parse_entries(response.json())
+        except Exception as exc:  # retry once: a cold start often fails then works
+            last_error = exc
+            if attempt + 1 < ATTEMPTS:
+                # Drop the session; a half-open connection to a sleeping
+                # instance would otherwise fail identically on the retry.
+                global _SESSION
+                _SESSION = None
+    raise last_error
 
 
 _FONT_CACHE: dict[str, ImageFont.ImageFont] = {}

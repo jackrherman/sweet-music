@@ -851,6 +851,82 @@ def render_idle(size: int) -> Image.Image:
     return frame
 
 
+STATUS_SCREEN_AFTER_SECONDS = 90.0
+
+
+def render_status(
+    args: argparse.Namespace,
+    glucose_state: "SharedGlucoseState",
+    glucose_lock: threading.Lock,
+    playback_state: "SharedPlaybackState",
+    playback_lock: threading.Lock,
+    size: int,
+) -> Image.Image:
+    """Screen shown when neither source has usable data.
+
+    The plain idle ring is indistinguishable from "still starting up", which
+    made a permanently failing Nightscout fetch look like normal boot
+    behaviour for far too long. Say which source is unhappy and why.
+    """
+    with glucose_lock:
+        glucose_error = glucose_state.error
+        has_readings = bool(glucose_state.readings)
+    with playback_lock:
+        spotify_error = getattr(playback_state, "error", None)
+
+    frame = Image.new("RGB", (size, size), (0, 0, 0))
+    draw = ImageDraw.Draw(frame)
+
+    try:
+        font = nightscout.load_font("5x7", args.font_dir, args.font_cache_dir)
+    except Exception:
+        font = None
+
+    if font is None:  # fall back to the old ring rather than a black panel
+        return render_idle(size)
+
+    draw.rectangle((0, 0, size - 1, size - 1), outline=(255, 170, 0), width=1)
+    draw.text((4, 4), "NO DATA", font=font, fill=(255, 170, 0))
+
+    def wrap(text: str, width: int, limit: int) -> list[str]:
+        lines, line = [], ""
+        for word in text.split():
+            candidate = f"{line} {word}".strip()
+            if draw.textlength(candidate, font=font) > width and line:
+                lines.append(line)
+                line = word
+            else:
+                line = candidate
+            if len(lines) >= limit:
+                return lines
+        if line:
+            lines.append(line)
+        return lines[:limit]
+
+    y = 16
+    if not args.nightscout_url:
+        draw.text((4, y), "NS: not set", font=font, fill=(200, 200, 200))
+        y += 9
+    elif glucose_error:
+        draw.text((4, y), "NS FAIL", font=font, fill=(255, 60, 0))
+        y += 9
+        for line in wrap(str(glucose_error), size - 8, 4):
+            draw.text((4, y), line, font=font, fill=(170, 170, 170))
+            y += 8
+    elif not has_readings:
+        draw.text((4, y), "NS: waiting", font=font, fill=(200, 200, 200))
+        y += 9
+
+    if spotify_error:
+        draw.text((4, y), "SPOTIFY FAIL", font=font, fill=(255, 60, 0))
+        y += 9
+        for line in wrap(str(spotify_error), size - 8, 2):
+            draw.text((4, y), line, font=font, fill=(170, 170, 170))
+            y += 8
+
+    return frame
+
+
 def render_test_pattern(size: int, offset: int) -> Image.Image:
     frame = Image.new("RGB", (size, size), (0, 0, 0))
     draw = ImageDraw.Draw(frame)
@@ -960,10 +1036,67 @@ def poll_spotify(
         stop_event.wait(poll_seconds)
 
 
+BOOT_CONFIG_PATHS = (
+    Path("/boot/firmware/sweet-music.conf"),
+    Path("/boot/sweet-music.conf"),
+)
+
+# Only settings that can make the machine unusable are overridable here. An
+# over-ambitious refresh rate starves the single core badly enough that sshd
+# cannot complete a key exchange and the pollers never run, and recovering
+# that otherwise means pulling the SD card and mounting ext4.
+BOOT_CONFIG_KEYS = {
+    "brightness": int,
+    "gpio_slowdown": int,
+    "pwm_bits": int,
+    "pwm_lsb_nanoseconds": int,
+    "limit_refresh_rate_hz": int,
+    "hardware_mapping": str,
+    "fps": float,
+    "idle_fps": float,
+}
+
+
+def apply_boot_overrides(args: argparse.Namespace) -> None:
+    """Let a file on the FAT boot partition override display settings.
+
+    That partition mounts on any laptop, including Windows, with no ext4
+    tooling and no login. It is the difference between a two-minute fix and
+    an unrecoverable box.
+    """
+    for path in BOOT_CONFIG_PATHS:
+        try:
+            if not path.exists():
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        for raw in text.splitlines():
+            line = raw.split("#", 1)[0].strip()
+            if not line or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip().lower().replace("-", "_")
+            caster = BOOT_CONFIG_KEYS.get(key)
+            if caster is None:
+                print(f"boot config: ignoring unknown key {key!r}", flush=True)
+                continue
+            try:
+                setattr(args, key, caster(value.strip()))
+            except ValueError:
+                print(f"boot config: bad value for {key}: {value!r}", flush=True)
+                continue
+            print(f"boot config: {key} = {getattr(args, key)}", flush=True)
+        return
+
+
 def run(args: argparse.Namespace) -> None:
     if args.preview_frames:
         render_preview_frames(args.preview_frames)
         return
+
+    apply_boot_overrides(args)
 
     load_dotenv()
 
@@ -1054,6 +1187,11 @@ def run(args: argparse.Namespace) -> None:
     gc.collect()
     gc.freeze()
 
+    # Grace period before the diagnostic screen replaces the idle ring, so a
+    # normal cold boot does not flash an alarming NO DATA panel while the first
+    # poll is still in flight.
+    started_at = time.monotonic()
+
     previous_scene: tuple | None = None
     previous_frame: Image.Image | None = None
     transition_from: Image.Image | None = None
@@ -1085,9 +1223,21 @@ def run(args: argparse.Namespace) -> None:
             else:
                 frame = render_glucose_screen(args, glucose_state, glucose_lock, size)
                 if frame is None:
-                    frame = idle
-                    scene = ("idle",)
-                    frame_key = ("idle",)
+                    # Show why there is nothing rather than an anonymous ring,
+                    # but only once the first poll has had a chance to finish.
+                    if frame_start - started_at > STATUS_SCREEN_AFTER_SECONDS:
+                        frame = render_status(
+                            args, glucose_state, glucose_lock,
+                            playback_state, playback_lock, size,
+                        )
+                        with glucose_lock:
+                            status_key = (bool(glucose_state.error), str(glucose_state.error)[:40])
+                        scene = ("idle",)
+                        frame_key = ("status", status_key)
+                    else:
+                        frame = idle
+                        scene = ("idle",)
+                        frame_key = ("idle",)
                 else:
                     scene = ("glucose",)
                     frame_key = ("glucose", id(frame))
@@ -1172,9 +1322,9 @@ def build_parser() -> argparse.ArgumentParser:
     # intermittent white flash; below 100 the frame rate collapses for no gain.
     parser.add_argument("--gpio-slowdown", type=int, default=1)
     parser.add_argument("--hardware-mapping", default="adafruit-hat-pwm")
-    parser.add_argument("--pwm-bits", type=int, default=11)
+    parser.add_argument("--pwm-bits", type=int, default=8)
     parser.add_argument("--pwm-lsb-nanoseconds", type=int, default=50)
-    parser.add_argument("--limit-refresh-rate-hz", type=int, default=0)
+    parser.add_argument("--limit-refresh-rate-hz", type=int, default=120)
     parser.add_argument(
         "--no-hardware-pulse",
         action="store_true",
