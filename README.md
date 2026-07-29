@@ -34,7 +34,7 @@ Both directions of the switch are animated.
 
 ![Wiring diagram](docs/images/wiring.png)
 
-*Every connection you actually make: PSU into the bonnet's screw terminal, the 4-pin harness out to the panel, the 16-way ribbon into INPUT, and the bonnet seated on the Pi's header.*
+*Every connection you actually make: PSU into the bonnet's screw terminal, the 4-pin harness out to the panel, the 16-way ribbon into INPUT, the bonnet seated on the Pi's header, and the two solder bridges on the bonnet — E to pad 8, and GPIO4 to GPIO18 for the PWM mod.*
 
 **One supply feeds everything.** The PSU goes into the bonnet's screw terminals, and the bonnet back-feeds the Pi through the GPIO header. **Do not also connect USB power** — two 5V supplies tied together through the header will fight each other and one will collapse, which shows up as the Pi resetting whenever the panel is energised.
 
@@ -44,11 +44,11 @@ Both panel cables are needed: the 16-pin HUB75 ribbon into the panel's **INPUT**
 
 ### Pin mapping
 
-The bonnet makes every signal connection for you — this is the reference for what it is doing, and for the one connection it does not make.
+The bonnet makes every signal connection for you — this is the reference for what it is doing, and for the two you add yourself.
 
 ![Pin mapping](docs/images/pinout.png)
 
-*Filled pins are driven by the matrix. Taken from the `adafruit-hat` profile in `lib/hardware-mapping.c`, which is also why the `config.txt` line above parks exactly those 14 pins.*
+*Filled pins are driven by the matrix. Taken from the `adafruit-hat-pwm` profile in `lib/hardware-mapping.c`, which is also why the `config.txt` lines above park exactly those 15 pins. The dashed line is the PWM mod: GPIO4 to GPIO18, which is what moves OE onto the hardware PWM peripheral.*
 
 ### The E address line
 

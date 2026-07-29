@@ -37,12 +37,20 @@
   <circle cx="518" cy="370" r="3.5" fill="#000"/>
 
   <!-- E bridge callout on bonnet -->
-  <circle cx="340" cy="382" r="12" fill="#fff" stroke="#000" stroke-width="1.4"/>
-  <text x="340" y="386" font-size="10" text-anchor="middle" fill="#000">E</text>
-  <circle cx="382" cy="382" r="12" fill="#fff" stroke="#000" stroke-width="1.4"/>
-  <text x="382" y="386" font-size="10" text-anchor="middle" fill="#000">8</text>
-  <path d="M352 382 L370 382" stroke="#000" stroke-width="5"/>
-  <text x="316" y="418" font-size="10.5" fill="#000">SOLDER BRIDGE (64x64)</text>
+  <circle cx="340" cy="368" r="12" fill="#fff" stroke="#000" stroke-width="1.4"/>
+  <text x="340" y="372" font-size="10" text-anchor="middle" fill="#000">E</text>
+  <circle cx="382" cy="368" r="12" fill="#fff" stroke="#000" stroke-width="1.4"/>
+  <text x="382" y="372" font-size="10" text-anchor="middle" fill="#000">8</text>
+  <path d="M352 368 L370 368" stroke="#000" stroke-width="5"/>
+  <text x="316" y="392" font-size="10.5" fill="#000">SOLDER BRIDGE (64x64)</text>
+
+  <!-- PWM mod bridge callout on bonnet -->
+  <circle cx="340" cy="422" r="12" fill="#fff" stroke="#000" stroke-width="1.4"/>
+  <text x="340" y="426" font-size="9" text-anchor="middle" fill="#000">G4</text>
+  <circle cx="382" cy="422" r="12" fill="#fff" stroke="#000" stroke-width="1.4"/>
+  <text x="382" y="426" font-size="9" text-anchor="middle" fill="#000">G18</text>
+  <path d="M352 422 L370 422" stroke="#000" stroke-width="5"/>
+  <text x="316" y="446" font-size="10.5" fill="#000">PWM MOD (FLICKER)</text>
 
   <!-- ================= PI ================= -->
   <rect x="300" y="500" width="230" height="86" fill="#fff" stroke="#000" stroke-width="1.6"/>

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Generate the GPIO / HUB75 signal mapping diagram.
 
-Pin assignments are taken from the `adafruit-hat` entry in
-hzeller/rpi-rgb-led-matrix lib/hardware-mapping.c
+Pin assignments are taken from the `adafruit-hat-pwm` entry in
+hzeller/rpi-rgb-led-matrix lib/hardware-mapping.c. That profile is identical
+to `adafruit-hat` except OE moves from GPIO4 to GPIO18, which is why the
+GPIO4-to-GPIO18 solder bridge is needed.
 """
 from pathlib import Path
 
@@ -15,9 +17,11 @@ HEADER = [
     "GPIO13", "GND", "GPIO19", "GPIO16", "GPIO26", "GPIO20", "GND", "GPIO21",
 ]
 
-# GPIO -> HUB75 signal, from the adafruit-hat mapping
+# GPIO -> HUB75 signal, from the adafruit-hat mapping.
+# GPIO18 carries OE once the PWM mod is fitted; GPIO4 still drives the pad the
+# bonnet wired, so both ends of the bridge are shown.
 MATRIX = {
-    "GPIO4": "OE", "GPIO17": "CLK", "GPIO21": "LAT",
+    "GPIO4": "OE", "GPIO18": "OE (PWM)", "GPIO17": "CLK", "GPIO21": "LAT",
     "GPIO22": "A", "GPIO26": "B", "GPIO27": "C", "GPIO20": "D", "GPIO24": "E",
     "GPIO5": "R1", "GPIO13": "G1", "GPIO6": "B1",
     "GPIO12": "R2", "GPIO16": "G2", "GPIO23": "B2",
@@ -40,10 +44,10 @@ out = [
     f'font-family="DejaVu Sans Mono, Consolas, monospace">',
     f'<rect width="{W}" height="{H}" fill="#ffffff"/>',
     '<text x="40" y="56" font-size="26" fill="#000">Raspberry Pi header -&gt; HUB75</text>',
-    '<text x="40" y="86" font-size="13" fill="#000">Mapping used by the "adafruit-hat" profile. '
+    '<text x="40" y="86" font-size="13" fill="#000">Mapping used by the "adafruit-hat-pwm" profile. '
     'The bonnet makes these connections for you.</text>',
     '<text x="40" y="108" font-size="13" fill="#000">Filled pins are driven by the matrix. '
-    'E is the one signal you must add by hand.</text>',
+    'E and the GPIO4-to-GPIO18 PWM bridge are the two you add by hand.</text>',
 ]
 
 # header outline
@@ -81,6 +85,15 @@ for row in range(20):
             if used:
                 out.append(f'<text x="{RIGHT_X + 96}" y="{y + 4}" font-size="12" fill="#000">{MATRIX[label]}</text>')
 
+# the PWM mod bridge, drawn in the empty gutter between the two pin columns:
+# pin 7 (GPIO4) to pin 12 (GPIO18)
+BR_Y4 = TOP + 20 + 3 * ROW
+BR_Y18 = TOP + 20 + 5 * ROW
+BR_X = (LEFT_X + RIGHT_X) / 2
+out.append(f'<path d="M {LEFT_X + 30} {BR_Y4} H {BR_X} V {BR_Y18} H {RIGHT_X - 30}" '
+           f'fill="none" stroke="#000" stroke-width="2" stroke-dasharray="5 3"/>')
+out.append(f'<text x="{BR_X + 6}" y="{(BR_Y4 + BR_Y18) / 2 + 4}" font-size="9" fill="#000">PWM MOD</text>')
+
 # HUB75 connector
 HX, HY = 760, TOP + 40
 out.append(f'<rect x="{HX}" y="{HY - 26}" width="215" height="{8 * 34 + 40}" fill="#fff" '
@@ -105,13 +118,25 @@ out.append(f'<text x="{HX + 4}" y="{NY + 66}" font-size="11" fill="#000">Bonnet 
 out.append(f'<text x="{HX + 4}" y="{NY + 86}" font-size="11" fill="#000">Solder pad E to pad 8.</text>')
 out.append(f'<text x="{HX + 4}" y="{NY + 106}" font-size="11" fill="#000">Garbled top half -&gt; use pad 16.</text>')
 
+# PWM mod note
+PY = NY + 140
+out.append(f'<rect x="{HX - 10}" y="{PY}" width="230" height="140" fill="#fff" stroke="#000" stroke-width="1.4"/>')
+out.append(f'<text x="{HX + 4}" y="{PY + 24}" font-size="12" fill="#000">THE PWM MOD</text>')
+out.append(f'<text x="{HX + 4}" y="{PY + 46}" font-size="11" fill="#000">Solder GPIO4 to GPIO18.</text>')
+out.append(f'<text x="{HX + 4}" y="{PY + 66}" font-size="11" fill="#000">OE then runs off hardware PWM,</text>')
+out.append(f'<text x="{HX + 4}" y="{PY + 86}" font-size="11" fill="#000">not a preemptible thread.</text>')
+out.append(f'<text x="{HX + 4}" y="{PY + 106}" font-size="11" fill="#000">91Hz -&gt; 154Hz. Needs</text>')
+out.append(f'<text x="{HX + 4}" y="{PY + 124}" font-size="9.5" fill="#000">--led-gpio-mapping=adafruit-hat-pwm</text>')
+
 # config.txt note
-out.append(f'<text x="40" y="{H - 96}" font-size="12" fill="#000">config.txt parks exactly these 14 pins '
+out.append(f'<text x="40" y="{H - 96}" font-size="12" fill="#000">config.txt parks exactly these 15 pins '
            f'before the kernel starts, so the</text>')
 out.append(f'<text x="40" y="{H - 78}" font-size="12" fill="#000">bonnet\'s 74AHCT245 buffers never see '
-           f'floating inputs:</text>')
-out.append(f'<text x="40" y="{H - 50}" font-size="12.5" fill="#000">gpio=4=op,dh</text>')
-out.append(f'<text x="40" y="{H - 30}" font-size="12.5" fill="#000">'
+           f'floating inputs. OE is active low, so both</text>')
+out.append(f'<text x="40" y="{H - 60}" font-size="12" fill="#000">ends of the PWM bridge are parked high:</text>')
+out.append(f'<text x="40" y="{H - 36}" font-size="12.5" fill="#000">gpio=4=op,dh</text>')
+out.append(f'<text x="40" y="{H - 18}" font-size="12.5" fill="#000">gpio=18=op,dh</text>')
+out.append(f'<text x="440" y="{H - 36}" font-size="12.5" fill="#000">'
            f'gpio=5,6,12,13,16,17,20,21,22,23,24,26,27=op,dl</text>')
 
 out.append('</svg>')
